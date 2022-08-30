@@ -80,7 +80,7 @@ Polygon2d *sanitize(const Polygon2d& poly)
    We could use a Paths structure, but we'd have to check the orientation of each
    path before adding it to the Polygon2d.
  */
-Polygon2d *toPolygon2d(const ClipperLib::PolyTree& poly, int pow2)
+Polygon2d *toPolygon2d(const ClipperLib::PolyTree& poly, int pow2, bool removeHoles)
 {
   auto result = new Polygon2d;
   auto node = poly.GetFirst();
@@ -90,18 +90,19 @@ Polygon2d *toPolygon2d(const ClipperLib::PolyTree& poly, int pow2)
     // Apparently, when using offset(), clipper gets the hole status wrong
     //outline.positive = !node->IsHole();
     outline.positive = Orientation(node->Contour);
+    if (!removeHoles || outline.positive) {
 
-    ClipperLib::Path cleaned_path;
-    ClipperLib::CleanPolygon(node->Contour, cleaned_path);
+      ClipperLib::Path cleaned_path;
+      ClipperLib::CleanPolygon(node->Contour, cleaned_path);
 
-    // CleanPolygon can in some cases reduce the polygon down to no vertices
-    if (cleaned_path.size() >= 3) {
-      for (const auto& ip : cleaned_path) {
-        outline.vertices.emplace_back(scale * ip.X, scale * ip.Y);
+      // CleanPolygon can in some cases reduce the polygon down to no vertices
+      if (cleaned_path.size() >= 3) {
+        for (const auto& ip : cleaned_path) {
+          outline.vertices.emplace_back(scale * ip.X, scale * ip.Y);
+        }
+        result->addOutline(outline);
       }
-      result->addOutline(outline);
     }
-
     node = node->GetNext();
   }
   result->setSanitized(true);
@@ -324,10 +325,10 @@ Polygon2d *applyOffset(const Polygon2d& poly, double offset, ClipperLib::JoinTyp
     isMiter ? miter_limit : 2.0,
     isRound ? std::ldexp(arc_tolerance, pow2) : 1.0
     );
-  auto p = ClipperUtils::fromPolygon2d(poly, pow2, removeHoles);
+  auto p = ClipperUtils::fromPolygon2d(poly, pow2, (offset <= 0) && removeHoles);
   co.AddPaths(p, joinType, ClipperLib::etClosedPolygon);
   ClipperLib::PolyTree result;
   co.Execute(result, std::ldexp(offset, pow2));
-  return toPolygon2d(result, pow2);
+  return toPolygon2d(result, pow2, (offset > 0) && removeHoles);
 }
 } // namespace ClipperUtils
