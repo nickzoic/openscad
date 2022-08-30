@@ -47,7 +47,7 @@ static std::shared_ptr<AbstractNode> builtin_offset(const ModuleInstantiation *i
 {
   auto node = std::make_shared<OffsetNode>(inst);
 
-  Parameters parameters = Parameters::parse(std::move(arguments), inst->location(), {"r"}, {"delta", "chamfer"});
+  Parameters parameters = Parameters::parse(std::move(arguments), inst->location(), {"r"}, {"delta", "chamfer","remove_holes"});
 
   node->fn = parameters["$fn"].toDouble();
   node->fs = parameters["$fs"].toDouble();
@@ -57,7 +57,12 @@ static std::shared_ptr<AbstractNode> builtin_offset(const ModuleInstantiation *i
   // radius takes precedence if both r and delta are given.
   node->delta = 1;
   node->chamfer = false;
+  node->remove_holes = false;
   node->join_type = ClipperLib::jtRound;
+  if (parameters["remove_holes"].isDefinedAs(Value::Type::BOOL) && parameters["remove_holes"].toBool()) {
+    node->remove_holes = true;
+    node->delta = 0;
+  }
   if (parameters["r"].isDefinedAs(Value::Type::NUMBER)) {
     node->delta = parameters["r"].toDouble();
   } else if (parameters["delta"].isDefinedAs(Value::Type::NUMBER)) {
@@ -83,6 +88,9 @@ std::string OffsetNode::toString() const
   if (!isRadius) {
     stream << ", chamfer = " << (this->chamfer ? "true" : "false");
   }
+  if (this->remove_holes) {
+    stream << ", remove_holes = true";
+  }
   stream << ", $fn = " << this->fn
          << ", $fa = " << this->fa
          << ", $fs = " << this->fs << ")";
@@ -96,6 +104,7 @@ void register_builtin_offset()
   {
     "offset(r = number)",
     "offset(delta = number)",
-    "offset(r = number, chamfer = false)",
+    "offset(delta = number, chamfer = false)",
+    "offset(remove_holes = true)",
   });
 }

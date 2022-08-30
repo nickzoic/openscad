@@ -118,4 +118,3 @@ bool Polygon2d::is_convex() const
   }
   return true;
 }
-

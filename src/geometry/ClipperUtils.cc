@@ -27,12 +27,13 @@ VectorOfVector2d fromPath(ClipperLib::Path path, int pow2)
   return ret;
 }
 
-ClipperLib::Paths fromPolygon2d(const Polygon2d& poly, int pow2)
+ClipperLib::Paths fromPolygon2d(const Polygon2d& poly, int pow2, bool removeHoles)
 {
   bool keep_orientation = poly.isSanitized();
   double scale = std::ldexp(1.0, pow2);
   ClipperLib::Paths result;
   for (const auto& outline : poly.outlines()) {
+    if (!outline.positive && removeHoles) continue;
     ClipperLib::Path p;
     for (const auto& v : outline.vertices) {
       p.emplace_back(v[0] * scale, v[1] * scale);
@@ -310,7 +311,7 @@ Polygon2d *applyMinkowski(const std::vector<const Polygon2d *>& polygons)
 }
 
 Polygon2d *applyOffset(const Polygon2d& poly, double offset, ClipperLib::JoinType joinType,
-                       double miter_limit, double arc_tolerance)
+                       double miter_limit, double arc_tolerance, bool removeHoles)
 {
   bool isMiter = joinType == ClipperLib::jtMiter;
   bool isRound = joinType == ClipperLib::jtRound;
@@ -323,7 +324,7 @@ Polygon2d *applyOffset(const Polygon2d& poly, double offset, ClipperLib::JoinTyp
     isMiter ? miter_limit : 2.0,
     isRound ? std::ldexp(arc_tolerance, pow2) : 1.0
     );
-  auto p = ClipperUtils::fromPolygon2d(poly, pow2);
+  auto p = ClipperUtils::fromPolygon2d(poly, pow2, removeHoles);
   co.AddPaths(p, joinType, ClipperLib::etClosedPolygon);
   ClipperLib::PolyTree result;
   co.Execute(result, std::ldexp(offset, pow2));

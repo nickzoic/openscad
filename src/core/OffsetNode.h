@@ -13,6 +13,7 @@ public:
   std::string name() const override { return "offset"; }
 
   bool chamfer;
+  bool remove_holes;
   double fn, fs, fa, delta;
   double miter_limit; // currently fixed high value to disable chamfers with jtMiter
   ClipperLib::JoinType join_type;
